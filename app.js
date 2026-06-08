@@ -192,10 +192,10 @@ Responde EXACTAMENTE con este formato:
 **Veredicto:** [resultado]
 
 ### 💪 Lo que haces bien
-Máximo 20 palabras en un único párrafo corto.
+Máximo 50 palabras en un único párrafo corto.
 
 ### 🛠️ Lo que puedes mejorar
-Máximo 20 palabras en un único párrafo corto. Incluye un ejemplo corregido entre comillas.
+Máximo 50 palabras en un único párrafo corto. Incluye un ejemplo corregido entre comillas.
 `;
 
         // LLAMADA A LA API CON PARÁMETROS DE CONTROL DE EXTENSIÓN
