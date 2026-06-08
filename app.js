@@ -28,8 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         taskInstructionsInput.value = savedTask;
         statusText.innerText = "Estado: API Key y tarea anterior cargadas de forma local.";
     } else {
-        // Tarea predeterminada en caso de abrir la app por primera vez
-        taskInstructionsInput.value = 'Describe tu rutina diaria. ¿A qué hora te levantas, qué haces en la mañana y cómo vas a estudiar o trabajar?';
+        // Tarea vacía o genérica para obligar a escribir la que tú desees
+        taskInstructionsInput.value = 'Escribe aquí las instrucciones de la tarea que vas a evaluar en este momento...';
     }
 });
 
@@ -45,7 +45,7 @@ taskInstructionsInput.addEventListener('input', () => {
 // --- 2. LÓGICA DE GRABACIÓN DE AUDIO ---
 btnStart.addEventListener('click', async () => {
     audioChunks = [];
-    fileInput.value = ""; // Limpiar archivo cargado si se opta por grabar
+    fileInput.value = ""; 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
@@ -105,8 +105,8 @@ btnEvaluate.addEventListener('click', async () => {
         alert("Por favor, ingresa tu OpenAI API Key primero.");
         return;
     }
-    if (!taskInstructions) {
-        alert("Por favor, escribe las instrucciones de la tarea que vas a evaluar.");
+    if (!taskInstructions || taskInstructions.startsWith('Escribe aquí')) {
+        alert("Por favor, detalla primero las instrucciones de la tarea que vas a evaluar.");
         return;
     }
     if (!audioBlob) {
@@ -120,7 +120,6 @@ btnEvaluate.addEventListener('click', async () => {
     try {
         const formData = new FormData();
         
-        // Asignar extensión adecuada para evitar errores de procesamiento en la API
         if (fileInput.files.length > 0) {
             const uploadedFile = fileInput.files[0];
             const extension = uploadedFile.name.split('.').pop(); 
@@ -131,7 +130,6 @@ btnEvaluate.addEventListener('click', async () => {
         
         formData.append('model', 'whisper-1');
 
-        // PASO A: Envío del archivo a Whisper
         const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${apiKey}` },
@@ -148,9 +146,8 @@ btnEvaluate.addEventListener('click', async () => {
 
         statusText.innerText = "Analizando texto con GPT-4o según criterios MCER A2...";
 
-        // PASO B: Envío del texto a GPT-4o con rúbrica estricta del nivel A2
-        const prompt = `Actúa como un examinador oficial de idiomas experto en el Marco Común Europeo de Referencia (MCER).
-Tu objetivo es evaluar si la transcripción de un audio de un estudiante cumple con las competencias del NIVEL A2 (Usuario Básico).
+        // PROMPT OPTIMIZADO: Eliminada la rutina diaria. Ajustado al contexto dinámico y feedback humano.
+        const prompt = `Actúa como un mentor y profesor de idiomas sumamente empático, cercano y experto en el Marco Común Europeo de Referencia (MCER). Tu objetivo es evaluar el desempeño de un estudiante de nivel A2 basándote únicamente en el audio que ha entregado.
 
 CONTEXTO DE LA TAREA ASIGNADA AL ESTUDIANTE:
 "${taskInstructions}"
@@ -158,26 +155,57 @@ CONTEXTO DE LA TAREA ASIGNADA AL ESTUDIANTE:
 TEXTO PRODUCIDO POR EL ESTUDIANTE:
 "${studentText}"
 
-CRITERIOS DE EVALUACIÓN OFICIALES NIVEL A2 A CONSIDERAR:
-1. Alcance Léxico: ¿Utiliza vocabulario básico y suficiente para abordar el tema específico de la tarea?
-2. Corrección Gramatical: ¿Usa estructuras simples de manera sistemática (presente simple, pasado simple, conectores comunes)? Se toleran errores pero no deben bloquear la comunicación.
-3. Coherencia y Fluidez: ¿Une frases cortas de forma lineal recurriendo a conectores elementales (and, but, because, then)?
+PROHIBICIONES ESTRICTAS:
+- NO des definiciones teóricas de los criterios del MCER (No expliques textualmente qué es "alcance léxico" o "coherencia").
+- NO uses listas de viñetas frías ni lenguaje formal de manual.
+- NO asumes que el estudiante está leyendo; háblale directamente sobre su grabación.
 
-Entrega tu evaluación utilizando estrictamente la siguiente estructura en Markdown:
+Entrega tu evaluación utilizando ESTRICTAMENTE la siguiente estructura en Markdown. Redacta los párrafos de forma fluida, natural y muy descriptiva, tal como lo haría un profesor real en un mensaje de aliento:
 
-### 📊 Resultados de la Evaluación
-
+### 📊 Resultado General
 * **Transcripción detectada**: "${studentText}"
 * **Veredicto de Nivel A2**: [CUMPLE TOTALMENTE / CUMPLE PARCIALMENTE / NO CUMPLE]
 
 ---
 
----
-
 ### 💪 Fortalezas
-(Analiza de forma pedagógica qué logró hacer bien el alumno según los criterios A2. Destaca su confianza, ritmo o vocabulario clave. Usa un tono motivador y cita ejemplos reales de lo que dijo entre comillas, por ejemplo: "Lograste usar estructuras muy efectivas como...").
+(Escribe un párrafo continuo, motivador y fluido. Destaca la confianza del alumno, su ritmo al hablar o cómo abordó el tema específico solicitado en la tarea. Cita textualmente entre comillas frases o palabras exactas que haya pronunciado o estructurado bien para demostrarle que analizaste su audio con detalle, usando fórmulas como "Demuestras una gran confianza al..." o "Logras identificar con mucha precisión...").
 
 ---
 
 ### 🛠️ Área de mejora
-(Menciona de forma muy clara, cercana y constructiva un máximo de 2 o 3 puntos clave que deba corregir para consolidar su nivel A2. Evita sonar demasiado técnico; en lugar de solo listar reglas, muestra el error cometido y escribe abajo la forma correcta entre comillas para que el alumno entienda la diferencia. Termina siempre con un consejo práctico, amigable y motivador para su próxima práctica).`;
+(Escribe un párrafo cercano y constructivo enfocado en un máximo de 2 vicios de pronunciación o de gramática notables que se deduzcan de la transcripción de su audio respecto a lo que pedía la tarea. No listes reglas genéricas; menciona el error específico que cometió y contrástalo inmediatamente con cómo debe sonar o estructurarse correctamente usando ejemplos entre comillas. Termina el párrafo con una frase amigable y un consejo práctico que lo motive a seguir practicando para su seguridad).`;
+
+        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.3
+            })
+        });
+
+        if (!gptResponse.ok) {
+            const errorData = await gptResponse.json();
+            throw new Error(errorData.error?.message || "Error en la evaluación de la IA.");
+        }
+
+        const gptData = await gptResponse.json();
+        const rawMarkDown = gptData.choices[0].message.content;
+        
+        evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
+        resultBox.classList.remove('hidden');
+        statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
+
+    } catch (error) {
+        alert("Hubo un problema: " + error.message);
+        statusText.innerText = "Estado: Error en el proceso.";
+        console.error(error);
+    } finally {
+        btnEvaluate.disabled = false;
+    }
+});
