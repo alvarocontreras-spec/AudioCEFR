@@ -16,6 +16,205 @@ const taskInstructionsInput = document.getElementById('taskInstructions');
 
 // --- 1. GUARDADO AUTOMÁTICO DE LA API KEY Y LA ÚLTIMA TAREA (LOCALSTORAGE) ---
 document.addEventListener('DOMContentLoaded', () => {
+    const savedKey = localStorage.getItem('openai_api_key');
+    if (savedKey) {
+        apiKeyInput.value = savedKey;
+    }
+    
+    const savedTask = localStorage.getItem('last_task_instructions');
+    if (savedTask) {
+        taskInstructionsInput.value = savedTask;
+        statusText.innerText = "Estado: API Key y tarea anterior cargadas de forma local.";
+    } else {
+        taskInstructionsInput.value = '';
+        statusText.innerText = "Estado: Listo. Por favor, escribe las instrucciones de la tarea.";
+    }
+});
+
+apiKeyInput.addEventListener('input', () => {
+    localStorage.setItem('openai_api_key', apiKeyInput.value.trim());
+});
+
+taskInstructionsInput.addEventListener('input', () => {
+    localStorage.setItem('last_task_instructions', taskInstructionsInput.value);
+});
+
+
+// --- 2. LÓGICA DE GRABACIÓN DE AUDIO ---
+btnStart.addEventListener('click', async () => {
+    audioChunks = [];
+    fileInput.value = ""; 
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            audioPlayback.src = audioUrl;
+            btnEvaluate.disabled = false;
+            statusText.innerText = "Estado: Grabación lista. Revisa el audio o haz clic en Evaluar.";
+        };
+
+        mediaRecorder.start();
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        btnEvaluate.disabled = true;
+        statusText.innerText = "Estado: Grabando... Habla ahora.";
+    } catch (err) {
+        alert("No se pudo acceder al micrófono. Por favor, verifica los permisos de tu navegador.");
+        console.error(err);
+    }
+});
+
+btnStop.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        btnStart.disabled = false;
+        btnStop.disabled = true;
+    }
+});
+
+
+// --- 3. LÓGICA PARA PROCESAR ARCHIVOS SUBIDOS ---
+fileInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        audioBlob = file; 
+        const audioUrl = URL.createObjectURL(file);
+        audioPlayback.src = audioUrl; 
+        btnEvaluate.disabled = false;
+        statusText.innerText = `Estado: Archivo "${file.name}" cargado y listo para evaluar.`;
+    }
+});
+
+
+// --- 4. CONEXIÓN CON LAS APIs DE OPENAI (WHISPER + GPT-4o) ---
+btnEvaluate.addEventListener('click', async () => {
+    const apiKey = apiKeyInput.value.trim();
+    const taskInstructions = taskInstructionsInput.value.trim();
+
+    if (!apiKey) {
+        alert("Por favor, ingresa tu OpenAI API Key primero.");
+        return;
+    }
+    if (!taskInstructions) {
+        alert("Por favor, escribe primero las instrucciones de la tarea que vas a evaluar.");
+        return;
+    }
+    if (!audioBlob) {
+        alert("Por favor, graba un audio o sube un archivo primero.");
+        return;
+    }
+
+    statusText.innerText = "Procesando... Transcribiendo audio con Whisper...";
+    btnEvaluate.disabled = true;
+
+    try {
+        const formData = new FormData();
+        
+        if (fileInput.files.length > 0) {
+            const uploadedFile = fileInput.files[0];
+            const extension = uploadedFile.name.split('.').pop(); 
+            formData.append('file', audioBlob, `student_audio.${extension}`);
+        } else {
+            formData.append('file', audioBlob, 'recording.webm');
+        }
+        
+        formData.append('model', 'whisper-1');
+
+        const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: formData
+        });
+
+        if (!whisperResponse.ok) {
+            const errorData = await whisperResponse.json();
+            throw new Error(errorData.error?.message || "Error en la transcripción.");
+        }
+        
+        const whisperData = await whisperResponse.json();
+        const studentText = whisperData.text;
+
+        statusText.innerText = "Analizando texto con GPT-4o según tus criterios...";
+
+        // PROMPT TOTALMENTE PERSONALIZADO CON TUS PREGUNTAS Y CRITERIOS
+        const prompt = `Actúa como un mentor y profesor de inglés sumamente empático, cercano y experto. Tu misión es evaluar la respuesta de un estudiante de nivel A2 basándote en la transcripción de su audio.
+
+CONTEXTO DE LA TAREA ASIGNADA:
+"${taskInstructions}"
+
+TEXTO PRODUCIDO POR EL ESTUDIANTE:
+"${studentText}"
+
+INSTRUCCIONES DE REDACCIÓN:
+- Háblale directamente al estudiante de forma amigable (ej: "Logras expresar...", "Para mejorar te sugiero...").
+- Responde de manera fluida y en formato de párrafo continuo a las preguntas guía provistas abajo. No uses listas de viñetas frías ni lenguaje corporativo.
+- Nota sobre Pronunciación y Fluidez: Deduce la pronunciación analizando cómo Whisper transcribió el texto (si hay palabras cortadas, mal escritas de forma fonética, o uso de conectores avanzados).
+
+Entrega tu evaluación utilizando ESTRICTAMENTE la siguiente estructura en Markdown:
+
+### 📊 Resultado General
+* **Transcripción detectada**: "${studentText}"
+* **Veredicto de Nivel A2**: [CUMPLE TOTALMENTE / CUMPLE PARCIALMENTE / NO CUMPLE]
+
+---
+
+### 💪 Lo que haces bien (Strengths)
+(Redacta un párrafo continuo, motivador y cercano que responda de manera natural a estas preguntas guiadas: ¿Puedes comunicar tus ideas? ¿Usas vocabulario adecuado para temas cotidianos? ¿Mantienes una conversación simple? ¿La pronunciación permite entender la mayor parte de lo que dices? Cita ejemplos reales del estudiante entre comillas).
+
+---
+
+### 🛠️ Lo que puedes mejorar (Areas for Improvement)
+(Redacta un párrafo constructivo y de apoyo enfocado en estos 4 aspectos clave basados en su desempeño actual:
+1. Gramática: tiempos verbales, uso de he/she, plurales, etc.
+2. Pronunciación de palabras específicas que se infieran con errores o confusión en la transcripción.
+3. Fluidez: cómo evitar pausas excesivas o repeticiones.
+4. Ampliación del vocabulario.
+Muestra el error cometido y compáralo con la forma correcta usando comillas. Cierra con un consejo amigable que inspire al alumno a seguir practicando).`;
+
+        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.3
+            })
+        });
+
+        if (!gptResponse.ok) {
+            const errorData = await gptResponse.json();
+            throw new Error(errorData.error?.message || "Error en la evaluación de la IA.");
+        }
+
+        const gptData = await gptResponse.json();
+        const rawMarkDown = gptData.choices[0].message.content;
+        
+        evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
+        resultBox.classList.remove('hidden');
+        statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
+
+    } catch (error) {
+        alert("Hubo un problema: " + error.message);
+        statusText.innerText = "Estado: Error en el proceso.";
+        console.error(error);
+    } finally {
+        btnEvaluate.disabled = false;
+    }
+});
+
+// --- 1. GUARDADO AUTOMÁTICO DE LA API KEY Y LA ÚLTIMA TAREA (LOCALSTORAGE) ---
+document.addEventListener('DOMContentLoaded', () => {
     // Cargar API Key si ya existe guardada en el navegador
     const savedKey = localStorage.getItem('openai_api_key');
     if (savedKey) {
