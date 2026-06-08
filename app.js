@@ -11,9 +11,9 @@ const audioPlayback = document.getElementById('audioPlayback');
 const resultBox = document.getElementById('resultBox');
 const evaluationOutput = document.getElementById('evaluationOutput');
 const apiKeyInput = document.getElementById('apiKey');
+const fileInput = document.getElementById('fileInput'); // NUEVO
 
 // --- 1. GUARDADO AUTOMÁTICO DE LA API KEY (LOCALSTORAGE) ---
-// Al cargar la página, verifica si ya hay una clave guardada en la PC
 document.addEventListener('DOMContentLoaded', () => {
     const savedKey = localStorage.getItem('openai_api_key');
     if (savedKey) {
@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Escucha cuando escribes o pegas la clave para guardarla al instante
 apiKeyInput.addEventListener('input', () => {
     localStorage.setItem('openai_api_key', apiKeyInput.value.trim());
 });
@@ -31,8 +30,8 @@ apiKeyInput.addEventListener('input', () => {
 // --- 2. LÓGICA DE GRABACIÓN DE AUDIO ---
 btnStart.addEventListener('click', async () => {
     audioChunks = [];
+    fileInput.value = ""; // Limpiar archivo subido si decide grabar
     try {
-        // Solicitar permisos del micrófono
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         
@@ -41,7 +40,6 @@ btnStart.addEventListener('click', async () => {
         };
 
         mediaRecorder.onstop = () => {
-            // Se usa webm ya que es el estándar nativo más compatible en navegadores para Whisper
             audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const audioUrl = URL.createObjectURL(audioBlob);
             audioPlayback.src = audioUrl;
@@ -53,9 +51,9 @@ btnStart.addEventListener('click', async () => {
         btnStart.disabled = true;
         btnStop.disabled = false;
         btnEvaluate.disabled = true;
-        statusText.innerText = "Estado: Grabando... Habla ahora (Responde a la tarea).";
+        statusText.innerText = "Estado: Grabando... Habla ahora.";
     } catch (err) {
-        alert("No se pudo acceder al micrófono. Por favor, verifica los permisos de tu navegador.");
+        alert("No se pudo acceder al micrófono. Verifica los permisos.");
         console.error(err);
     }
 });
@@ -63,7 +61,6 @@ btnStart.addEventListener('click', async () => {
 btnStop.addEventListener('click', () => {
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
         mediaRecorder.stop();
-        // Apagar el micrófono por privacidad del usuario
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
         btnStart.disabled = false;
         btnStop.disabled = true;
@@ -71,7 +68,20 @@ btnStop.addEventListener('click', () => {
 });
 
 
-// --- 3. CONEXIÓN CON LAS APIs DE OPENAI (WHISPER + GPT-4o) ---
+// --- 3. NUEVO: LÓGICA PARA ESCUCHAR ARCHIVOS SUBIDOS ---
+fileInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        audioBlob = file; // Guardamos el archivo directamente como nuestro objeto a enviar
+        const audioUrl = URL.createObjectURL(file);
+        audioPlayback.src = audioUrl; // Permite reproducir el audio subido en la página
+        btnEvaluate.disabled = false;
+        statusText.innerText = `Estado: Archivo "${file.name}" cargado y listo para evaluar.`;
+    }
+});
+
+
+// --- 4. CONEXIÓN CON LAS APIs DE OPENAI (WHISPER + GPT-4o) ---
 btnEvaluate.addEventListener('click', async () => {
     const apiKey = apiKeyInput.value.trim();
     if (!apiKey) {
@@ -79,13 +89,21 @@ btnEvaluate.addEventListener('click', async () => {
         return;
     }
 
+    if (!audioBlob) {
+        alert("Por favor, graba un audio o sube un archivo primero.");
+        return;
+    }
+
     statusText.innerText = "Procesando... Transcribiendo audio con Whisper...";
     btnEvaluate.disabled = true;
 
     try {
-        // PASO A: Enviar audio a OpenAI Whisper para transcripción
+        // PASO A: Enviar audio (grabado o subido) a OpenAI Whisper
         const formData = new FormData();
-        formData.append('file', audioBlob, 'recording.webm');
+        
+        // Determinamos el nombre del archivo según su origen (subido o grabado)
+        const filename = audioBlob.name || 'recording.webm';
+        formData.append('file', audioBlob, filename);
         formData.append('model', 'whisper-1');
 
         const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -96,7 +114,7 @@ btnEvaluate.addEventListener('click', async () => {
 
         if (!whisperResponse.ok) {
             const errorData = await whisperResponse.json();
-            throw new Error(errorData.error?.message || "Error en la transcripción del audio.");
+            throw new Error(errorData.error?.message || "Error en la transcripción.");
         }
         
         const whisperData = await whisperResponse.json();
@@ -137,7 +155,6 @@ Entrega tu evaluación en formato estructurado usando Markdown claro:
         const gptData = await gptResponse.json();
         const rawMarkDown = gptData.choices[0].message.content;
         
-        // Reemplazar saltos de línea para que se vea ordenado en HTML básico
         evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
         resultBox.classList.remove('hidden');
         statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
