@@ -11,42 +11,35 @@
         <h1>Evaluador Oral MCER - Nivel A2</h1>
         <p class="subtitle">Graba tu respuesta a la tarea asignada para evaluar tu nivel.</p>
 
-        <!-- Configuración de API Key -->
         <div class="api-box">
             <label for="apiKey">OpenAI API Key (Se guarda localmente):</label>
             <input type="password" id="apiKey" placeholder="sk-...">
         </div>
 
-        <!-- Tarea del estudiante -->
         <div class="task-box">
             <h3>Tarea A2:</h3>
             <p><em>"Describe tu rutina diaria. ¿A qué hora te levantas, qué haces en la mañana y cómo vas a estudiar o trabajar?"</em></p>
         </div>
 
-        <!-- Controles de Grabación -->
         <div class="audio-controls">
             <button id="btnStart">🔴 Iniciar Grabación</button>
             <button id="btnStop" disabled>⏹️ Detener</button>
         </div>
 
-        <!-- Caja para subir archivos de audio -->
         <div class="upload-box" style="text-align: center; margin-bottom: 20px; padding: 10px; border: 2px dashed #bdc3c7; border-radius: 6px;">
             <label for="fileInput" style="font-weight: bold; display: block; margin-bottom: 5px; color: #34495e;">O sube un archivo de audio (MP3, WAV, M4A, WEBM):</label>
             <input type="file" id="fileInput" accept="audio/*">
         </div>
 
-        <!-- Estado y Reproductor -->
         <div class="status-box">
             <p id="status">Estado: Listo para grabar o subir archivo</p>
             <audio id="audioPlayback" controls></audio>
         </div>
 
-        <!-- Botón de Evaluación -->
         <button id="btnEvaluate" disabled>📊 Evaluar con IA</button>
 
         <hr>
 
-        <!-- Resultados -->
         <div id="resultBox" class="result-box hidden">
             <h2>Resultados de la Evaluación</h2>
             <div id="evaluationOutput"></div>
