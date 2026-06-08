@@ -163,6 +163,14 @@
             line-height: 1.6;
             font-size: 15px;
         }
+
+        /* Indicador de Nombre de Estudiante Detectado */
+        #studentNameBadge {
+            margin-top: 5px;
+            font-size: 13px;
+            color: #007399;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -187,6 +195,7 @@
             <button id="btnStop" disabled>Detener</button>
         </div>
         <input type="file" id="fileInput" accept="audio/*">
+        <div id="studentNameBadge" class="hidden">Estudiante detectado: <span id="detectedName"></span></div>
     </div>
 
     <p id="status">Estado: Listo. Esperando configuración.</p>
