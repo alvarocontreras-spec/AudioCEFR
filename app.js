@@ -6,7 +6,7 @@ let audioBlob;
 const btnStart = document.getElementById('btnStart');
 const btnStop = document.getElementById('btnStop');
 const btnEvaluate = document.getElementById('btnEvaluate');
-const btnCopy = document.getElementById('btnCopy'); // Asegúrate de tener este ID en tu HTML para el botón de copiar
+const btnCopy = document.getElementById('btnCopy'); 
 const statusText = document.getElementById('status');
 const audioPlayback = document.getElementById('audioPlayback');
 const resultBox = document.getElementById('resultBox');
@@ -17,19 +17,16 @@ const taskInstructionsInput = document.getElementById('taskInstructions');
 
 // --- 1. GUARDADO AUTOMÁTICO DE LA API KEY Y LA ÚLTIMA TAREA (LOCALSTORAGE) ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Cargar API Key si ya existe guardada en el navegador
     const savedKey = localStorage.getItem('openai_api_key');
     if (savedKey) {
         apiKeyInput.value = savedKey;
     }
     
-    // Cargar la última tarea escrita por el profesor
     const savedTask = localStorage.getItem('last_task_instructions');
     if (savedTask) {
         taskInstructionsInput.value = savedTask;
         statusText.innerText = "Estado: API Key y tarea anterior cargadas de forma local.";
     } else {
-        // Dejar completamente vacío para forzar al profesor a ingresar la tarea real
         taskInstructionsInput.value = '';
         statusText.innerText = "Estado: Listo. Por favor, escribe las instrucciones de la tarea.";
     }
@@ -108,7 +105,7 @@ btnEvaluate.addEventListener('click', async () => {
         return;
     }
     if (!taskInstructions) {
-        alert("Por favor, escribe primero las instrucciones de la tarea que vas a evaluar en el cuadro de texto.");
+        alert("Por favor, escribe primero las instrucciones de la tarea que vas a evaluar.");
         return;
     }
     if (!audioBlob) {
@@ -146,9 +143,14 @@ btnEvaluate.addEventListener('click', async () => {
         const whisperData = await whisperResponse.json();
         const studentText = whisperData.text;
 
+        // VALIDACIÓN DE AUDIO VACÍO O INSIGNIFICANTE
+        if (!studentText || studentText.trim().length < 3) {
+            throw new Error("No se detectó suficiente habla en el audio. Intenta grabar de nuevo.");
+        }
+
         statusText.innerText = "Analizando texto con GPT-4o según tus criterios...";
 
-        // TU PROMPT INTEGRADO Y CALIBRADO A REGLA DE 20 PALABRAS
+        // PROMPT OPTIMIZADO PARA GENERAR EXACTAMENTE 3 ORACIONES POR SECCIÓN
         const prompt = `
 Actúa como un evaluador experto de inglés nivel A2 según el MCER.
 
@@ -162,43 +164,34 @@ IMPORTANTE:
 ${taskInstructions}
 
 ## TRANSCRIPCIÓN DEL ESTUDIANTE
-
 <transcription>
 ${studentText}
 </transcription>
 
 ## CRITERIOS DE EVALUACIÓN
-
-1. Task Achievement
-- ¿Respondió la tarea?
-- ¿Entregó suficiente información?
-
-2. Vocabulary
-- ¿Utiliza vocabulario apropiado para A2?
-
-3. Grammar
-- ¿Las estructuras permiten comprender el mensaje?
+1. Task Achievement: ¿Respondió la tarea y entregó suficiente información?
+2. Vocabulary: ¿Utiliza vocabulario apropiado para A2?
+3. Grammar: ¿Las estructuras permiten comprender el mensaje?
 
 ## RESULTADO
-
-Determina uno de los siguientes resultados:
-- CUMPLE TOTALMENTE
-- CUMPLE PARCIALMENTE
-- NO CUMPLE
+Determina uno de los siguientes resultados: CUMPLE TOTALMENTE, CUMPLE PARCIALMENTE o NO CUMPLE.
 
 Responde EXACTAMENTE con este formato:
 
 ### 📊 Resultado General
 **Veredicto:** [resultado]
 
+### 📝 Transcripción Detectada
+"${studentText}"
+
 ### 💪 Lo que haces bien
-Máximo 60 palabras en un único párrafo corto.
+(Escribe un único párrafo corto que contenga EXACTAMENTE TRES ORACIONES completas. Comenta de forma clara cómo cumplió la tarea, su uso de vocabulario y la efectividad de sus ideas).
 
 ### 🛠️ Lo que puedes mejorar
-Máximo 60 palabras en un párrafo corto. Incluye un ejemplo corregido entre comillas.
+(Escribe un único párrafo corto que contenga EXACTAMENTE TRES ORACIONES completas. Identifica el error gramatical o de vocabulario más crítico, muestra el ejemplo corregido entre comillas y finaliza con una recomendación directa).
 `;
 
-        // LLAMADA A LA API CON PARÁMETROS DE CONTROL DE EXTENSIÓN
+        // AJUSTE DE TOKENS PARA DAR ESPACIO A LAS 3 ORACIONES SIN CORTARSE
         const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -208,8 +201,8 @@ Máximo 60 palabras en un párrafo corto. Incluye un ejemplo corregido entre com
             body: JSON.stringify({
                 model: "gpt-4o",
                 messages: [{ role: "user", content: prompt }],
-                temperature: 0.1, // estricto con las instrucciones de conteo
-                max_tokens: 350   // Límite físico para evitar que se extienda
+                temperature: 0.2, // Mantener baja para asegurar el conteo exacto de oraciones
+                max_tokens: 350   // Espacio suficiente para la transcripción y los párrafos de 3 oraciones
             })
         });
 
@@ -221,11 +214,12 @@ Máximo 60 palabras en un párrafo corto. Incluye un ejemplo corregido entre com
         const gptData = await gptResponse.json();
         const rawMarkDown = gptData.choices[0].message.content;
         
-        evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
+        // Renderizado limpio de saltos de línea preservando el formato Markdown
+        evaluationOutput.innerHTML = rawMarkDown.trim().replace(/\n/g, '<br>');
         resultBox.classList.remove('hidden');
         statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
 
-        // --- SISTEMA DE HISTORIAL INTEGRADO ---
+        // --- SISTEMA DE HISTORIAL ---
         const history = JSON.parse(localStorage.getItem('evaluations') || '[]');
         history.push({
             date: new Date().toLocaleString(),
