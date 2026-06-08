@@ -208,8 +208,8 @@ Máximo 20 palabras en un único párrafo corto. Incluye un ejemplo corregido en
             body: JSON.stringify({
                 model: "gpt-4o",
                 messages: [{ role: "user", content: prompt }],
-                temperature: 0.1, // Extremadamente estricto con las instrucciones de conteo
-                max_tokens: 250   // Límite físico para evitar que se extienda
+                temperature: 0.1, // estricto con las instrucciones de conteo
+                max_tokens: 350   // Límite físico para evitar que se extienda
             })
         });
 
