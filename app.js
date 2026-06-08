@@ -22,14 +22,15 @@ document.addEventListener('DOMContentLoaded', () => {
         apiKeyInput.value = savedKey;
     }
     
-    // Cargar la última tarea escrita para comodidad del profesor
+    // Cargar la última tarea escrita por el profesor
     const savedTask = localStorage.getItem('last_task_instructions');
     if (savedTask) {
         taskInstructionsInput.value = savedTask;
         statusText.innerText = "Estado: API Key y tarea anterior cargadas de forma local.";
     } else {
-        // Tarea vacía o genérica para obligar a escribir la que tú desees
-        taskInstructionsInput.value = 'Escribe aquí las instrucciones de la tarea que vas a evaluar en este momento...';
+        // Dejar completamente vacío para forzar al profesor a ingresar la tarea real
+        taskInstructionsInput.value = '';
+        statusText.innerText = "Estado: Listo. Por favor, escribe las instrucciones de la tarea.";
     }
 });
 
@@ -105,8 +106,8 @@ btnEvaluate.addEventListener('click', async () => {
         alert("Por favor, ingresa tu OpenAI API Key primero.");
         return;
     }
-    if (!taskInstructions || taskInstructions.startsWith('Escribe aquí')) {
-        alert("Por favor, detalla primero las instrucciones de la tarea que vas a evaluar.");
+    if (!taskInstructions) {
+        alert("Por favor, escribe primero las instrucciones de la tarea que vas a evaluar en el cuadro de texto.");
         return;
     }
     if (!audioBlob) {
@@ -146,19 +147,20 @@ btnEvaluate.addEventListener('click', async () => {
 
         statusText.innerText = "Analizando texto con GPT-4o según criterios MCER A2...";
 
-        // PROMPT OPTIMIZADO: Eliminada la rutina diaria. Ajustado al contexto dinámico y feedback humano.
-        const prompt = `Actúa como un mentor y profesor de idiomas sumamente empático, cercano y experto en el Marco Común Europeo de Referencia (MCER). Tu objetivo es evaluar el desempeño de un estudiante de nivel A2 basándote únicamente en el audio que ha entregado.
+        // PROMPT OPTIMIZADO: Eliminada la rutina diaria por completo de las reglas fijas.
+        const prompt = `Actúa como un mentor y profesor de idiomas sumamente empático, cercano y experto en el Marco Común Europeo de Referencia (MCER). Tu objetivo es evaluar el desempeño de un estudiante de nivel A2 basándote únicamente en el audio que ha entregado y en la tarea específica solicitada.
 
-CONTEXTO DE LA TAREA ASIGNADA AL ESTUDIANTE:
+CONTEXTO DE LA TAREA ASIGNADA AL ESTUDIANTE (EVALÚA ESTRICTAMENTE EN BASE A ESTO):
 "${taskInstructions}"
 
 TEXTO PRODUCIDO POR EL ESTUDIANTE:
 "${studentText}"
 
 PROHIBICIONES ESTRICTAS:
+- NO hables de la rutina diaria a menos que explícitamente se mencione en el CONTEXTO DE LA TAREA de arriba.
 - NO des definiciones teóricas de los criterios del MCER (No expliques textualmente qué es "alcance léxico" o "coherencia").
-- NO uses listas de viñetas frías ni lenguaje formal de manual.
-- NO asumes que el estudiante está leyendo; háblale directamente sobre su grabación.
+- NO uses listas de viñetas frías ni números correlativos para tus explicaciones gramaticales.
+- NO asumas que el estudiante está leyendo; háblale directamente sobre su grabación de voz de manera constructiva.
 
 Entrega tu evaluación utilizando ESTRICTAMENTE la siguiente estructura en Markdown. Redacta los párrafos de forma fluida, natural y muy descriptiva, tal como lo haría un profesor real en un mensaje de aliento:
 
@@ -169,12 +171,12 @@ Entrega tu evaluación utilizando ESTRICTAMENTE la siguiente estructura en Markd
 ---
 
 ### 💪 Fortalezas
-(Escribe un párrafo continuo, motivador y fluido. Destaca la confianza del alumno, su ritmo al hablar o cómo abordó el tema específico solicitado en la tarea. Cita textualmente entre comillas frases o palabras exactas que haya pronunciado o estructurado bien para demostrarle que analizaste su audio con detalle, usando fórmulas como "Demuestras una gran confianza al..." o "Logras identificar con mucha precisión...").
+(Escribe un párrafo continuo, motivador y fluido. Destaca la confianza del alumno, su ritmo al hablar o cómo abordó el tema específico que el profesor solicitó en la tarea de arriba. Cita textualmente entre comillas frases o palabras exactas que haya pronunciado o estructurado bien para demostrarle que analizaste su audio con detalle, usando fórmulas como "Demuestras una gran confianza al..." o "Logras identificar con mucha precisión...").
 
 ---
 
 ### 🛠️ Área de mejora
-(Escribe un párrafo cercano y constructivo enfocado en un máximo de 2 vicios de pronunciación o de gramática notables que se deduzcan de la transcripción de su audio respecto a lo que pedía la tarea. No listes reglas genéricas; menciona el error específico que cometió y contrástalo inmediatamente con cómo debe sonar o estructurarse correctamente usando ejemplos entre comillas. Termina el párrafo con una frase amigable y un consejo práctico que lo motive a seguir practicando para su seguridad).`;
+(Escribe un párrafo cercano y constructivo enfocado en un máximo de 2 vicios de pronunciación o de gramática notables que se deduzcan de la transcripción de su audio respecto a lo que pedía la tarea actual de arriba. No listes reglas genéricas; menciona el error específico que cometió y contrástalo inmediatamente con cómo debe sonar o estructurarse correctamente usando ejemplos entre comillas. Termina el párrafo con una frase amigable y un consejo práctico que lo motive a seguir practicando para su seguridad).`;
 
         const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
