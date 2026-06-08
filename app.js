@@ -1,7 +1,19 @@
-// --- GUARDADO AUTOMÁTICO DE API KEY ---
+// --- CONFIGURACIÓN Y VARIABLES GLOBALES ---
+let mediaRecorder;
+let audioChunks = [];
+let audioBlob;
+
+const btnStart = document.getElementById('btnStart');
+const btnStop = document.getElementById('btnStop');
+const btnEvaluate = document.getElementById('btnEvaluate');
+const statusText = document.getElementById('status');
+const audioPlayback = document.getElementById('audioPlayback');
+const resultBox = document.getElementById('resultBox');
+const evaluationOutput = document.getElementById('evaluationOutput');
 const apiKeyInput = document.getElementById('apiKey');
 
-// Al cargar la página, verificar si ya hay una clave guardada en la computadora
+// --- 1. GUARDADO AUTOMÁTICO DE LA API KEY (LOCALSTORAGE) ---
+// Al cargar la página, verifica si ya hay una clave guardada en la PC
 document.addEventListener('DOMContentLoaded', () => {
     const savedKey = localStorage.getItem('openai_api_key');
     if (savedKey) {
@@ -10,8 +22,131 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Escuchar cuando escribas o pegues la clave para guardarla al instante
+// Escucha cuando escribes o pegas la clave para guardarla al instante
 apiKeyInput.addEventListener('input', () => {
     localStorage.setItem('openai_api_key', apiKeyInput.value.trim());
 });
-// --------------------------------------
+
+
+// --- 2. LÓGICA DE GRABACIÓN DE AUDIO ---
+btnStart.addEventListener('click', async () => {
+    audioChunks = [];
+    try {
+        // Solicitar permisos del micrófono
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            // Se usa webm ya que es el estándar nativo más compatible en navegadores para Whisper
+            audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            audioPlayback.src = audioUrl;
+            btnEvaluate.disabled = false;
+            statusText.innerText = "Estado: Grabación lista. Revisa el audio o haz clic en Evaluar.";
+        };
+
+        mediaRecorder.start();
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        btnEvaluate.disabled = true;
+        statusText.innerText = "Estado: Grabando... Habla ahora (Responde a la tarea).";
+    } catch (err) {
+        alert("No se pudo acceder al micrófono. Por favor, verifica los permisos de tu navegador.");
+        console.error(err);
+    }
+});
+
+btnStop.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+        // Apagar el micrófono por privacidad del usuario
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        btnStart.disabled = false;
+        btnStop.disabled = true;
+    }
+});
+
+
+// --- 3. CONEXIÓN CON LAS APIs DE OPENAI (WHISPER + GPT-4o) ---
+btnEvaluate.addEventListener('click', async () => {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+        alert("Por favor, ingresa tu OpenAI API Key en el cuadro de texto primero.");
+        return;
+    }
+
+    statusText.innerText = "Procesando... Transcribiendo audio con Whisper...";
+    btnEvaluate.disabled = true;
+
+    try {
+        // PASO A: Enviar audio a OpenAI Whisper para transcripción
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'recording.webm');
+        formData.append('model', 'whisper-1');
+
+        const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: formData
+        });
+
+        if (!whisperResponse.ok) {
+            const errorData = await whisperResponse.json();
+            throw new Error(errorData.error?.message || "Error en la transcripción del audio.");
+        }
+        
+        const whisperData = await whisperResponse.json();
+        const studentText = whisperData.text;
+
+        statusText.innerText = "Analizando texto con GPT-4o según criterios MCER A2...";
+
+        // PASO B: Enviar el texto a GPT-4o con rúbrica MCER A2
+        const prompt = `Actúa como un examinador oficial de idiomas experto en el Marco Común Europeo de Referencia (MCER).
+Evalúa de manera estricta pero constructiva si la siguiente transcripción de un estudiante cumple con los requisitos mínimos del nivel A2 para la tarea: "Describir la rutina diaria".
+
+Texto del estudiante: "${studentText}"
+
+Entrega tu evaluación en formato estructurado usando Markdown claro:
+1. **Transcripción detectada**: Muestra exactamente lo que el alumno dijo.
+2. **Gramática y Vocabulario (Nivel A2)**: Analiza si usa presente simple, verbos de rutina y conectores básicos (and, but, because). Detecta errores clave de forma educativa.
+3. **Veredicto de Nivel A2**: [CUMPLE TOTALMENTE / CUMPLE PARCIALMENTE / NO CUMPLE]
+4. **Retroalimentación para el alumno**: Consejos amigables y sugerencias específicas para mejorar.`;
+
+        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.3
+            })
+        });
+
+        if (!gptResponse.ok) {
+            const errorData = await gptResponse.json();
+            throw new Error(errorData.error?.message || "Error en la evaluación de la IA.");
+        }
+
+        const gptData = await gptResponse.json();
+        const rawMarkDown = gptData.choices[0].message.content;
+        
+        // Reemplazar saltos de línea para que se vea ordenado en HTML básico
+        evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
+        resultBox.classList.remove('hidden');
+        statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
+
+    } catch (error) {
+        alert("Hubo un problema: " + error.message);
+        statusText.innerText = "Estado: Error en el proceso.";
+        console.error(error);
+    } finally {
+        btnEvaluate.disabled = false;
+    }
+});
