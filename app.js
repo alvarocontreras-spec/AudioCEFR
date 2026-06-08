@@ -147,15 +147,15 @@ btnEvaluate.addEventListener('click', async () => {
 
         statusText.innerText = "Analizando texto con GPT-4o según tus criterios...";
 
-        // TU PROMPT PERSONALIZADO CON LÍMITE ESTRICTO DE 20 PALABRAS
-        const prompt = `Eres un profesor de inglés experto, cercano y motivador para estudiantes de nivel A2. Tu tarea es evaluar la respuesta oral basándote en la transcripción.
+        // PROMPT ULTRA SINTÉTICO (CORTANTE)
+        const prompt = `Eres un profesor de inglés experto para nivel A2. Evalúa la respuesta oral basándote en la transcripción.
 
 ## Contexto
 - Tarea asignada: "${taskInstructions}"
 - Transcripción del audio: "${studentText}"
 
-## Regla de Oro (Extensión Máxima)
-- Cada sección ("Lo que haces bien" y "Lo que puedes mejorar") debe tener un MÁXIMO DE 20 PALABRAS en total. Sé directo, breve y conciso.
+## REGLA DE ORO OBLIGATORIA
+- Sé extremadamente breve. Cada sección DEBE tener entre 15 y 20 palabras como máximo. No uses saludos ni despedidas motivacionales largas. Ve directo al grano en una sola línea.
 
 Entrega tu evaluación utilizando ESTRICTAMENTE la siguiente estructura en Markdown:
 
@@ -166,12 +166,12 @@ Entrega tu evaluación utilizando ESTRICTAMENTE la siguiente estructura en Markd
 ---
 
 ### 💪 Lo que haces bien (Strengths)
-(En MÁXIMO 20 PALABRAS: Destaca un logro concreto del estudiante sobre su fluidez, vocabulario o cumplimiento de la tarea).
+(En una sola frase de máximo 20 palabras, di qué logró el alumno con su vocabulario o fluidez).
 
 ---
 
 ### 🛠️ Lo que puedes mejorar (Areas for Improvement)
-(En MÁXIMO 20 PALABRAS: Señala solo 1 error prioritario de gramática o pronunciación, muestra la corrección entre comillas y da un micro-consejo).`;
+(En una sola frase de máximo 20 palabras, muestra el error crítico corregido entre comillas y un micro-consejo).`;
 
         const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -182,7 +182,8 @@ Entrega tu evaluación utilizando ESTRICTAMENTE la siguiente estructura en Markd
             body: JSON.stringify({
                 model: "gpt-4o",
                 messages: [{ role: "user", content: prompt }],
-                temperature: 0.3
+                temperature: 0.2, // Baja temperatura para seguir reglas estrictas y evitar textos creativos
+                max_tokens: 150   // Candado técnico que limita físicamente el tamaño máximo de la respuesta
             })
         });
 
