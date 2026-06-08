@@ -11,7 +11,7 @@ const audioPlayback = document.getElementById('audioPlayback');
 const resultBox = document.getElementById('resultBox');
 const evaluationOutput = document.getElementById('evaluationOutput');
 const apiKeyInput = document.getElementById('apiKey');
-const fileInput = document.getElementById('fileInput'); // NUEVO
+const fileInput = document.getElementById('fileInput');
 
 // --- 1. GUARDADO AUTOMÁTICO DE LA API KEY (LOCALSTORAGE) ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -30,7 +30,7 @@ apiKeyInput.addEventListener('input', () => {
 // --- 2. LÓGICA DE GRABACIÓN DE AUDIO ---
 btnStart.addEventListener('click', async () => {
     audioChunks = [];
-    fileInput.value = ""; // Limpiar archivo subido si decide grabar
+    fileInput.value = ""; // Limpiar archivo subido si decide grabar nuevo audio
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
@@ -53,7 +53,7 @@ btnStart.addEventListener('click', async () => {
         btnEvaluate.disabled = true;
         statusText.innerText = "Estado: Grabando... Habla ahora.";
     } catch (err) {
-        alert("No se pudo acceder al micrófono. Verifica los permisos.");
+        alert("No se pudo acceder al micrófono. Verifica los permisos de tu navegador.");
         console.error(err);
     }
 });
@@ -68,13 +68,13 @@ btnStop.addEventListener('click', () => {
 });
 
 
-// --- 3. NUEVO: LÓGICA PARA ESCUCHAR ARCHIVOS SUBIDOS ---
+// --- 3. LÓGICA PARA PROCESAR ARCHIVOS SUBIDOS ---
 fileInput.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (file) {
-        audioBlob = file; // Guardamos el archivo directamente como nuestro objeto a enviar
+        audioBlob = file; // Guardamos el archivo subido directamente
         const audioUrl = URL.createObjectURL(file);
-        audioPlayback.src = audioUrl; // Permite reproducir el audio subido en la página
+        audioPlayback.src = audioUrl; // Permite reproducir el archivo cargado en la web
         btnEvaluate.disabled = false;
         statusText.innerText = `Estado: Archivo "${file.name}" cargado y listo para evaluar.`;
     }
@@ -98,14 +98,20 @@ btnEvaluate.addEventListener('click', async () => {
     btnEvaluate.disabled = true;
 
     try {
-        // PASO A: Enviar audio (grabado o subido) a OpenAI Whisper
         const formData = new FormData();
         
-        // Determinamos el nombre del archivo según su origen (subido o grabado)
-        const filename = audioBlob.name || 'recording.webm';
-        formData.append('file', audioBlob, filename);
+        // Detectar si el audio viene de un archivo subido o de la grabadora directa
+        if (fileInput.files.length > 0) {
+            const uploadedFile = fileInput.files[0];
+            const extension = uploadedFile.name.split('.').pop(); // Extrae la extensión (.mp3, .m4a, etc.)
+            formData.append('file', audioBlob, `student_audio.${extension}`);
+        } else {
+            formData.append('file', audioBlob, 'recording.webm');
+        }
+        
         formData.append('model', 'whisper-1');
 
+        // PASO A: Llamada a la API de Whisper
         const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${apiKey}` },
@@ -114,7 +120,7 @@ btnEvaluate.addEventListener('click', async () => {
 
         if (!whisperResponse.ok) {
             const errorData = await whisperResponse.json();
-            throw new Error(errorData.error?.message || "Error en la transcripción.");
+            throw new Error(errorData.error?.message || "Error en la transcripción del archivo de audio.");
         }
         
         const whisperData = await whisperResponse.json();
@@ -122,7 +128,7 @@ btnEvaluate.addEventListener('click', async () => {
 
         statusText.innerText = "Analizando texto con GPT-4o según criterios MCER A2...";
 
-        // PASO B: Enviar el texto a GPT-4o con rúbrica MCER A2
+        // PASO B: Llamada a la API de GPT-4o
         const prompt = `Actúa como un examinador oficial de idiomas experto en el Marco Común Europeo de Referencia (MCER).
 Evalúa de manera estricta pero constructiva si la siguiente transcripción de un estudiante cumple con los requisitos mínimos del nivel A2 para la tarea: "Describir la rutina diaria".
 
@@ -155,6 +161,7 @@ Entrega tu evaluación en formato estructurado usando Markdown claro:
         const gptData = await gptResponse.json();
         const rawMarkDown = gptData.choices[0].message.content;
         
+        // Renderizar saltos de línea para la vista en pantalla
         evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
         resultBox.classList.remove('hidden');
         statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
