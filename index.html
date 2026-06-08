@@ -3,49 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluador de Audio MCER - A2</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Evaluador A2 - Oxford Style</title>
+    <style>
+        /* --- ESTILOS INSPIRADOS EN OXFORD ENGLISH TEST --- */
+        body {
+            background-color: #F9F9FB;
+            color: #333333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background-color: #FFFFFF;
+            max-width: 700px;
+            width: 100%;
+            border: 1px solid #E6E8EC;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 33, 71, 0.05);
+        }
+
+        h1 {
+            color: #002147; /* Azul Oxford Principal */
+            font-size: 24px;
+            border-bottom: 2px solid #007399;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: #002147;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #4A5568;
+        }
+
+        input[type="password"], textarea, input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #CBD5E1;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+            height: 100px;
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        /* --- BOTONES ESTILO OXFORD --- */
+        button {
+            padding: 10px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #btnStart {
+            background-color: #002147; /* Azul Oxford */
+            color: #FFFFFF;
+        }
+
+        #btnStart:hover:not(:disabled) {
+            background-color: #001530;
+        }
+
+        #btnStop {
+            background-color: #D9383A; /* Rojo Alerta controlado */
+            color: #FFFFFF;
+        }
+
+        #btnStop:hover:not(:disabled) {
+            background-color: #B8282A;
+        }
+
+        #btnEvaluate {
+            background-color: #007399; /* Celeste Vivo Oxford */
+            color: #FFFFFF;
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            box-shadow: 0 2px 6px rgba(0, 115, 153, 0.2);
+        }
+
+        #btnEvaluate:hover:not(:disabled) {
+            background-color: #005A78;
+        }
+
+        #btnCopy {
+            background-color: #F0F4F8;
+            color: #002147;
+            border: 1px solid #002147;
+            margin-top: 15px;
+        }
+
+        #btnCopy:hover {
+            background-color: #E1E8F0;
+        }
+
+        button:disabled {
+            background-color: #E2E8F0 !important;
+            color: #94A3B8 !important;
+            cursor: not-allowed;
+            box-shadow: none !important;
+        }
+
+        #status {
+            font-size: 13px;
+            color: #64748B;
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+
+        audio {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        /* --- CONTENEDOR DE RESULTADOS --- */
+        #resultBox {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #FFFFFF;
+            border-left: 5px solid #002147;
+            border-top: 1px solid #E6E8EC;
+            border-right: 1px solid #E6E8EC;
+            border-bottom: 1px solid #E6E8EC;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #evaluationOutput {
+            line-height: 1.6;
+            font-size: 15px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Evaluador Oral MCER - Nivel A2</h1>
-        <p class="subtitle">Graba tu respuesta a la tarea asignada para evaluar tu nivel según estándares oficiales.</p>
 
-        <div class="api-box">
-            <label for="apiKey">OpenAI API Key (Se guarda localmente):</label>
-            <input type="password" id="apiKey" placeholder="sk-...">
-        </div>
-
-        <div class="task-box">
-            <h3>Instrucciones de la Tarea A2:</h3>
-            <textarea id="taskInstructions" rows="3" style="width: 100%; padding: 10px; box-sizing: border-box; border-radius: 4px; border: 1px solid #cbd5e0; font-family: inherit;" placeholder="Ejemplo: Describe tus últimas vacaciones. ¿A dónde fuiste y qué actividades hiciste?"></textarea>
-        </div>
-
-        <div class="audio-controls">
-            <button id="btnStart">🔴 Iniciar Grabación</button>
-            <button id="btnStop" disabled>⏹️ Detener</button>
-        </div>
-
-        <div class="upload-box" style="text-align: center; margin-bottom: 20px; padding: 10px; border: 2px dashed #bdc3c7; border-radius: 6px;">
-            <label for="fileInput" style="font-weight: bold; display: block; margin-bottom: 5px; color: #34495e;">O sube un archivo de audio (MP3, WAV, M4A, WEBM):</label>
-            <input type="file" id="fileInput" accept="audio/*">
-        </div>
-
-        <div class="status-box">
-            <p id="status">Estado: Listo para grabar o subir archivo</p>
-            <audio id="audioPlayback" controls></audio>
-        </div>
-
-        <button id="btnEvaluate" disabled>📊 Evaluar con IA</button>
-
-        <hr>
-
-        <div id="resultBox" class="result-box hidden">
-            <h2>Resultados de la Evaluación</h2>
-            <div id="evaluationOutput"></div>
-        </div>
+<div class="container">
+    <h1>Oxford Style English A2 Evaluator</h1>
+    
+    <div class="form-group">
+        <label for="apiKey">OpenAI API Key:</label>
+        <input type="password" id="apiKey" placeholder="sk-...">
     </div>
 
-    <script src="app.js"></script>
+    <div class="form-group">
+        <label for="taskInstructions">Instrucciones de la Tarea (Task):</label>
+        <textarea id="taskInstructions" placeholder="Ej. Describe your last vacation..."></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Entrada de Audio Estudiante:</label>
+        <div class="audio-controls">
+            <button id="btnStart">Grabar Audio</button>
+            <button id="btnStop" disabled>Detener</button>
+        </div>
+        <input type="file" id="fileInput" accept="audio/*">
+    </div>
+
+    <p id="status">Estado: Listo. Esperando configuración.</p>
+    <audio id="audioPlayback" controls></audio>
+
+    <button id="btnEvaluate" disabled>Evaluar con IA</button>
+
+    <div id="resultBox" class="hidden">
+        <div id="evaluationOutput"></div>
+        <button id="btnCopy">Copiar Feedback</button>
+    </div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
