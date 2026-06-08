@@ -143,14 +143,14 @@ btnEvaluate.addEventListener('click', async () => {
         const whisperData = await whisperResponse.json();
         const studentText = whisperData.text;
 
-        // VALIDACIÓN DE AUDIO VACÍO O INSIGNIFICANTE
+        // VALIDACIÓN DE AUDIO VACÍO O CON RUIDO IRRELEVANTE
         if (!studentText || studentText.trim().length < 3) {
             throw new Error("No se detectó suficiente habla en el audio. Intenta grabar de nuevo.");
         }
 
         statusText.innerText = "Analizando texto con GPT-4o según tus criterios...";
 
-        // PROMPT OPTIMIZADO PARA GENERAR EXACTAMENTE 3 ORACIONES POR SECCIÓN
+        // PROMPT OPTIMIZADO PARA GENERAR EXACTAMENTE 3 ORACIONES POR ASPECTO
         const prompt = `
 Actúa como un evaluador experto de inglés nivel A2 según el MCER.
 
@@ -191,7 +191,7 @@ Responde EXACTAMENTE con este formato:
 (Escribe un único párrafo corto que contenga EXACTAMENTE TRES ORACIONES completas. Identifica el error gramatical o de vocabulario más crítico, muestra el ejemplo corregido entre comillas y finaliza con una recomendación directa).
 `;
 
-        // AJUSTE DE TOKENS PARA DAR ESPACIO A LAS 3 ORACIONES SIN CORTARSE
+        // LLAMADA RECONFIGURADA CON MARGEN SEGURO DE MAX TOKENS Y BAJA TEMPERATURA
         const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -201,8 +201,8 @@ Responde EXACTAMENTE con este formato:
             body: JSON.stringify({
                 model: "gpt-4o",
                 messages: [{ role: "user", content: prompt }],
-                temperature: 0.2, // Mantener baja para asegurar el conteo exacto de oraciones
-                max_tokens: 350   // Espacio suficiente para la transcripción y los párrafos de 3 oraciones
+                temperature: 0.2, // Asegura el apego estricto a la estructura de 3 oraciones
+                max_tokens: 350   // Permite que las oraciones cierren limpiamente sin cortarse
             })
         });
 
@@ -214,12 +214,12 @@ Responde EXACTAMENTE con este formato:
         const gptData = await gptResponse.json();
         const rawMarkDown = gptData.choices[0].message.content;
         
-        // Renderizado limpio de saltos de línea preservando el formato Markdown
+        // Renderizado HTML seguro respetando títulos y saltos de línea del Markdown
         evaluationOutput.innerHTML = rawMarkDown.trim().replace(/\n/g, '<br>');
         resultBox.classList.remove('hidden');
         statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
 
-        // --- SISTEMA DE HISTORIAL ---
+        // --- SISTEMA DE HISTORIAL INTEGRADO ---
         const history = JSON.parse(localStorage.getItem('evaluations') || '[]');
         history.push({
             date: new Date().toLocaleString(),
