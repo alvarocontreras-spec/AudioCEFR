@@ -128,49 +128,25 @@ btnEvaluate.addEventListener('click', async () => {
 
         statusText.innerText = "Analizando texto con GPT-4o según criterios MCER A2...";
 
-        // PASO B: Llamada a la API de GPT-4o
+        // PASO B: // PASO B: Llamada a la API de GPT-4o con rúbrica mejorada y detallada
         const prompt = `Actúa como un examinador oficial de idiomas experto en el Marco Común Europeo de Referencia (MCER).
-Evalúa de manera estricta pero constructiva si la siguiente transcripción de un estudiante cumple con los requisitos mínimos del nivel A2 para la tarea: "Describir la rutina diaria".
+Evalúa de manera muy detallada, pedagógica y constructiva si la siguiente transcripción de un audio de un estudiante cumple con los requisitos del nivel A2 para la tarea: "Describir la rutina diaria".
 
 Texto del estudiante: "${studentText}"
 
-Entrega tu evaluación en formato estructurado usando Markdown claro:
-1. **Transcripción detectada**: Muestra exactamente lo que el alumno dijo.
-2. **Gramática y Vocabulario (Nivel A2)**: Analiza si usa presente simple, verbos de rutina y conectores básicos (and, but, because). Detecta errores clave de forma educativa.
-3. **Veredicto de Nivel A2**: [CUMPLE TOTALMENTE / CUMPLE PARCIALMENTE / NO CUMPLE]
-4. **Retroalimentación para el alumno**: Consejos amigables y sugerencias específicas para mejorar.`;
+Entrega tu evaluación utilizando estrictamente la siguiente estructura en Markdown. Sé muy específico, destacando ejemplos textuales o fonéticos basados en lo que el alumno dijo:
 
-        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o",
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0.3
-            })
-        });
+### 📊 Resultados de la Evaluación
 
-        if (!gptResponse.ok) {
-            const errorData = await gptResponse.json();
-            throw new Error(errorData.error?.message || "Error en la evaluación de la IA.");
-        }
+* **Transcripción detectada**: "${studentText}"
+* **Veredicto de Nivel A2**: [CUMPLE TOTALMENTE / CUMPLE PARCIALMENTE / NO CUMPLE]
 
-        const gptData = await gptResponse.json();
-        const rawMarkDown = gptData.choices[0].message.content;
-        
-        // Renderizar saltos de línea para la vista en pantalla
-        evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
-        resultBox.classList.remove('hidden');
-        statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
+---
 
-    } catch (error) {
-        alert("Hubo un problema: " + error.message);
-        statusText.innerText = "Estado: Error en el proceso.";
-        console.error(error);
-    } finally {
-        btnEvaluate.disabled = false;
-    }
-});
+### 💪 Fortalezas
+(Analiza el alcance léxico, la confianza, el ritmo o las estructuras gramaticales correctas que utilizó en presente simple o conectores básicos. Menciona ejemplos específicos entre comillas si es posible, como "they are wearing colorful helmets").
+
+---
+
+### 🛠️ Área de mejora
+(Analiza errores sistemáticos de gramática o vicios de pronunciación notables que se deduzcan de la transcripción, como confusiones de plurales tipo "childrens" o errores fonéticos específicos como "excaited" en lugar de "excited". Brinda un consejo práctico y amigable para que el estudiante practique).`;
