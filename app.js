@@ -172,45 +172,12 @@ Entrega tu evaluación utilizando estrictamente la siguiente estructura en Markd
 
 ---
 
+---
+
 ### 💪 Fortalezas
-(Analiza de forma pedagógica qué logró hacer bien el alumno según los criterios A2 en este audio, enfocándote en el uso de vocabulario, confianza o estructuras apropiadas para la tarea. Destaca palabras o frases exactas que usó correctamente entre comillas).
+(Analiza de forma pedagógica qué logró hacer bien el alumno según los criterios A2. Destaca su confianza, ritmo o vocabulario clave. Usa un tono motivador y cita ejemplos reales de lo que dijo entre comillas, por ejemplo: "Lograste usar estructuras muy efectivas como...").
 
 ---
 
 ### 🛠️ Área de mejora
-(Señala de forma constructiva los errores gramaticales, léxicos o fonéticos deducibles más críticos para el nivel A2. Proporciona ejemplos claros de cómo debió estructurarse o decirse y un consejo breve para practicar en sus futuras tareas).`;
-
-        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o",
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0.3
-            })
-        });
-
-        if (!gptResponse.ok) {
-            const errorData = await gptResponse.json();
-            throw new Error(errorData.error?.message || "Error en la evaluación de la IA.");
-        }
-
-        const gptData = await gptResponse.json();
-        const rawMarkDown = gptData.choices[0].message.content;
-        
-        // Reemplazar saltos de línea para el renderizado correcto en HTML básico
-        evaluationOutput.innerHTML = rawMarkDown.replace(/\n/g, '<br>');
-        resultBox.classList.remove('hidden');
-        statusText.innerText = "Estado: ¡Evaluación completa con éxito!";
-
-    } catch (error) {
-        alert("Hubo un problema: " + error.message);
-        statusText.innerText = "Estado: Error en el proceso.";
-        console.error(error);
-    } finally {
-        btnEvaluate.disabled = false;
-    }
-});
+(Menciona de forma muy clara, cercana y constructiva un máximo de 2 o 3 puntos clave que deba corregir para consolidar su nivel A2. Evita sonar demasiado técnico; en lugar de solo listar reglas, muestra el error cometido y escribe abajo la forma correcta entre comillas para que el alumno entienda la diferencia. Termina siempre con un consejo práctico, amigable y motivador para su próxima práctica).`;
